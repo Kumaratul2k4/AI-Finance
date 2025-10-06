@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinanceAI ⚡</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root { --bg: #0b1220; --panel:#0f172a; --muted:#94a3b8; --text:#e2e8f0; --brand:#22d3ee; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui;background:var(--bg);color:var(--text)}
+    header{display:flex;align-items:center;gap:.75rem;padding:16px 20px;border-bottom:1px solid #1f2937;position:sticky;top:0;background:rgba(11,18,32,.8);backdrop-filter:blur(10px)}
+    .brand{font-weight:700;font-size:1.25rem;display:flex;align-items:center;gap:.5rem}
+    .container{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 60px)}
+    nav{border-right:1px solid #1f2937;background:var(--panel)}
+    nav .item{padding:14px 16px;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent}
+    nav .item.active{background:#111827;color:#fff;border-left-color:var(--brand)}
+    main{padding:16px}
+    .row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}
+    .card{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:14px}
+    label{display:block;color:var(--muted);font-size:.85rem;margin-bottom:6px}
+    input,select,button{background:#0b1220;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:10px 12px}
+    button.primary{background:linear-gradient(135deg,#06b6d4,#3b82f6);border:0}
+    .kpi{display:flex;flex-direction:column;gap:6px}
+    .kpi h3{margin:0;font-size:.9rem;color:#94a3b8}
+    .kpi .val{font-size:1.4rem;font-weight:700}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    .flex{display:flex;gap:12px;align-items:end}
+    .muted{color:#94a3b8}
+    .hidden{display:none}
+    .success{background:#064e3b;border:1px solid #065f46;color:#d1fae5;border-radius:10px;padding:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">⚡ FinanceAI <span class="muted">AI-Powered Stock Prediction</span></div>
+  </header>
+  <div class="container">
+    <nav>
+      <div class="item active" data-tab="dashboard">Dashboard</div>
+      <div class="item" data-tab="data">Data Acquisition</div>
+      <div class="item" data-tab="features">Feature Engineering</div>
+      <div class="item" data-tab="predict">Prediction Center</div>
+      <div class="item" data-tab="viz">Data Visualization</div>
+      <div class="item" data-tab="ai">AI Assistant</div>
+      <div class="item" data-tab="performance">Model Performance</div>
+    </nav>
+    <main>
+      <!-- Controls -->
+      <section class="card">
+        <div class="flex">
+          <div>
+            <label>Symbol</label>
+            <input id="input-symbol" value="AAPL" />
+          </div>
+          <div>
+            <label>Start</label>
+            <input id="input-start" type="date" />
+          </div>
+          <div>
+            <label>End</label>
+            <input id="input-end" type="date" />
+          </div>
+          <div>
+            <button class="primary" id="btn-fetch">Fetch Data</button>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:6px">Tip: Adjust dates and click Fetch to refresh all tabs.</div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="tab-dashboard" class="grid">
+        <div class="row">
+          <div class="card kpi"><h3>Last Close</h3><div class="val" id="kpi-last-close">-</div><div class="muted" id="kpi-diff"></div></div>
+          <div class="card kpi"><h3>Daily Change %</h3><div class="val" id="kpi-pct">-</div></div>
+          <div class="card kpi"><h3>Volume</h3><div class="val" id="kpi-vol">-</div></div>
+        </div>
+        <div class="card">
+          <h3 class="muted">Price Chart</h3>
+          <div id="chart-candle" style="height:460px"></div>
+        </div>
+      </section>
+
+      <!-- Data -->
+      <section id="tab-data" class="grid hidden">
+        <div class="card"><button id="btn-export">Export CSV</button> <span class="muted" id="export-path"></span></div>
+        <div class="card"><h3 class="muted">Latest Data</h3><div id="table-prices" style="overflow:auto;max-height:420px"></div></div>
+      </section>
+
+      <!-- Features -->
+      <section id="tab-features" class="grid hidden">
+        <div class="card"><h3 class="muted">Engineered Features</h3><div id="table-features" style="overflow:auto;max-height:520px"></div></div>
+      </section>
+
+      <!-- Predict -->
+      <section id="tab-predict" class="grid hidden">
+        <div class="card">
+          <div class="flex">
+            <div>
+              <label>Model</label>
+              <select id="select-model">
+                <option>Linear Regression</option>
+                <option>Random Forest</option>
+                <option>ARIMA</option>
+              </select>
+            </div>
+            <button class="primary" id="btn-train">Train & Evaluate</button>
+          </div>
+          <div class="row">
+            <div class="card kpi"><h3>RMSE</h3><div class="val" id="m-rmse">-</div></div>
+            <div class="card kpi"><h3>MAE</h3><div class="val" id="m-mae">-</div></div>
+            <div class="card kpi"><h3>R²</h3><div class="val" id="m-r2">-</div></div>
+          </div>
+          <div class="card"><h3 class="muted">Next-Day Prediction</h3><div class="val" id="next-pred">-</div></div>
+          <div class="card">
+            <h3 class="muted">Test vs Predicted</h3>
+            <div id="chart-predict" style="height:320px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Visualization -->
+      <section id="tab-viz" class="grid hidden">
+        <div class="card"><h3 class="muted">Candlestick + SMAs</h3><div id="chart-viz" style="height:460px"></div></div>
+        <div class="card"><h3 class="muted">RSI (14)</h3><div id="chart-rsi" style="height:220px"></div></div>
+      </section>
+
+      <!-- AI Assistant -->
+      <section id="tab-ai" class="grid hidden">
+        <div class="card">
+          <div class="flex">
+            <div>
+              <label>Model</label>
+              <select id="select-gemini-model">
+                <option>gemini-2.5-pro</option>
+                <option>gemini-1.5-flash</option>
+              </select>
+            </div>
+            <button class="primary" id="btn-insights" style="align-self:end">Generate Insights</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="muted">Analyze Chart Screenshot</h3>
+          <div class="flex">
+            <input type="file" id="chart-file" accept="image/*" />
+            <button class="primary" id="btn-insights-image">Analyze Image</button>
+          </div>
+          <div class="muted" style="margin-top:6px">Upload a stock chart screenshot to infer support, resistance, stance (Buy/Sell/Neutral), and suggested entry/stop-loss/target.</div>
+        </div>
+        <div class="card">
+          <h3 class="muted">Assistant Output</h3>
+          <div id="ai-output" class="muted">No insights yet.</div>
+        </div>
+        <div class="card">
+          <h3 class="muted">Image Analysis</h3>
+          <div id="ai-image-output" class="muted">No image analyzed yet.</div>
+        </div>
+      </section>
+
+      <!-- Performance -->
+      <section id="tab-performance" class="grid hidden">
+        <div class="card"><h3 class="muted">Model Comparison</h3><div id="table-performance"></div></div>
+        <div class="card"><h3 class="muted">Model vs RMSE</h3><div id="chart-rmse" style="height:320px"></div></div>
+        <div id="best-banner" class="success hidden"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const $ = (s)=>document.querySelector(s);
+    const $$ = (s)=>document.querySelectorAll(s);
+    const api = {
+      prices: (symbol,start,end)=>fetch(`/api/prices?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`).then(r=>r.json()),
+      features: (symbol,start,end)=>fetch(`/api/features?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`).then(r=>r.json()),
+      exportCSV: (symbol,start,end)=>fetch(`/api/export?symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`).then(r=>r.json()),
+      predict: (symbol,start,end,model)=>fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,start,end,model})}).then(r=>r.json()),
+      performance: (symbol,start,end)=>fetch('/api/performance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,start,end})}).then(r=>r.json()),
+      insights: (symbol,start,end,model)=>fetch('/api/insights',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,start,end,model})}).then(r=>r.json()),
+      insightsImage: (file,symbol,model)=>{ const fd=new FormData(); fd.append('file',file); if(symbol) fd.append('symbol',symbol); if(model) fd.append('model',model); return fetch('/api/insights/image',{method:'POST',body:fd}).then(async r=>{ const txt = await r.text(); let data; try{ data = txt? JSON.parse(txt): null; }catch{ throw new Error(txt || r.statusText); } if(!r.ok){ const msg = (data && (data.detail||data.message)) || r.statusText; throw new Error(msg); } return data; }); }
+    };
+
+    // Tabs
+    $$('.item').forEach(el=>el.addEventListener('click',()=>{
+      $$('.item').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');
+      const tab = el.dataset.tab;
+      $$('main section').forEach(s=>s.classList.add('hidden'));
+      $(`#tab-${tab}`).classList.remove('hidden');
+    }));
+
+    // Defaults dates
+    const today = new Date();
+    const past = new Date(); past.setDate(today.getDate()-365*2);
+    $('#input-end').value = today.toISOString().slice(0,10);
+    $('#input-start').value = past.toISOString().slice(0,10);
+
+    let lastPrices = [];
+    let lastFeatures = [];
+
+    function renderTable(el, rows){
+      if(!rows || !rows.length){ el.innerHTML = '<div class="muted">No data.</div>'; return; }
+      const cols = Object.keys(rows[0]);
+      let html = '<table style="width:100%;border-collapse:collapse">';
+      html += '<thead><tr>' + cols.map(c=>`<th style="text-align:left;border-bottom:1px solid #1f2937;padding:6px">${c}</th>`).join('') + '</tr></thead>';
+      html += '<tbody>' + rows.map(r=>'<tr>'+cols.map(c=>`<td style="padding:6px;border-bottom:1px dashed #1f2937">${r[c]}</td>`).join('')+'</tr>').join('') + '</tbody>';
+      html += '</table>';
+      el.innerHTML = html;
+    }
+
+    function renderPerformance(rows){
+      // table
+      const el = document.getElementById('table-performance');
+      renderTable(el, rows);
+      // chart: Model vs RMSE
+      const chartId = 'chart-rmse';
+      if(rows && rows.length){
+        const models = rows.map(r=>r.Model);
+        const rmses = rows.map(r=>Number(r.RMSE?.toFixed ? r.RMSE : r.RMSE));
+        Plotly.newPlot(chartId, [{type:'bar', x: models, y: rmses, marker:{color:'#60a5fa'}}], {margin:{l:30,r:10,t:10,b:40}, paper_bgcolor:'transparent', plot_bgcolor:'transparent', yaxis:{title:'RMSE'}});
+        // best banner
+        const minIdx = rmses.indexOf(Math.min(...rmses));
+        const best = rows[minIdx];
+        const banner = document.getElementById('best-banner');
+        banner.textContent = `Best model: ${best.Model} (RMSE: ${best.RMSE.toFixed ? best.RMSE.toFixed(3) : best.RMSE})`;
+        banner.classList.remove('hidden');
+      } else {
+        Plotly.purge(chartId);
+        document.getElementById('best-banner').classList.add('hidden');
+      }
+    }
+
+    function drawCandle(rows, elId){
+      if(!rows || !rows.length){ Plotly.purge(elId); return; }
+      const x = rows.map(r=>r.Date);
+      const open = rows.map(r=>r.Open);
+      const high = rows.map(r=>r.High);
+      const low = rows.map(r=>r.Low);
+      const close = rows.map(r=>r.Close);
+      const sma5 = rows[0].SMA_5 !== undefined ? rows.map(r=>r.SMA_5) : null;
+      const sma20 = rows[0].SMA_20 !== undefined ? rows.map(r=>r.SMA_20) : null;
+      const data = [ {type:'candlestick', x, open, high, low, close, name:'Price'} ];
+      if(sma20) data.push({type:'scatter', x, y:sma20, name:'SMA 20', line:{color:'royalblue'}});
+      if(sma5) data.push({type:'scatter', x, y:sma5, name:'SMA 5', line:{color:'orange'}});
+      Plotly.newPlot(elId, data, {margin:{l:0,r:0,t:20,b:0}, paper_bgcolor:'transparent', plot_bgcolor:'transparent'});
+    }
+
+    function drawLine(x, y, elId, name){
+      Plotly.newPlot(elId, [{type:'scatter', x, y, mode:'lines', name}], {margin:{l:0,r:0,t:20,b:0}, paper_bgcolor:'transparent', plot_bgcolor:'transparent'});
+    }
+
+    function updateKPIs(rows){
+      if(!rows.length){ $('#kpi-last-close').textContent='-'; $('#kpi-pct').textContent='-'; $('#kpi-vol').textContent='-'; return; }
+      const last = rows[rows.length-1];
+      const prev = rows.length>1 ? rows[rows.length-2] : last;
+      const change = Number(last.Close) - Number(prev.Close);
+      const pct = prev.Close ? (change/Number(prev.Close))*100 : 0;
+      $('#kpi-last-close').textContent = Number(last.Close).toFixed(2);
+      $('#kpi-diff').textContent = `${change>=0?'+':''}${change.toFixed(2)}`;
+      $('#kpi-pct').textContent = `${pct>=0?'+':''}${pct.toFixed(2)}%`;
+      $('#kpi-vol').textContent = (last.Volume?Number(last.Volume).toLocaleString():'-');
+    }
+
+    function drawPredChart(y_true, y_pred){
+      if(!y_true || !y_true.length){ Plotly.purge('chart-predict'); return; }
+      const x = Array.from({length:y_true.length}, (_,i)=>i+1);
+      const data = [
+        {type:'scatter', x, y: y_true, mode:'lines', name:'Actual', line:{color:'#22d3ee'}},
+        {type:'scatter', x, y: y_pred||[], mode:'lines', name:'Predicted', line:{color:'#f472b6'}}
+      ];
+      Plotly.newPlot('chart-predict', data, {margin:{l:0,r:0,t:20,b:0}, paper_bgcolor:'transparent', plot_bgcolor:'transparent'});
+    }
+
+    async function fetchAll(){
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const start = $('#input-start').value; const end = $('#input-end').value;
+      const p = await api.prices(symbol,start,end);
+      lastPrices = p.rows || [];
+      renderTable($('#table-prices'), lastPrices.slice(-200));
+      updateKPIs(lastPrices);
+      drawCandle(lastPrices, 'chart-candle');
+      const f = await api.features(symbol,start,end);
+      lastFeatures = f.rows || [];
+      renderTable($('#table-features'), lastFeatures.slice(-100));
+      drawCandle(lastFeatures, 'chart-viz');
+      if(lastFeatures.length && lastFeatures[0].RSI_14!==undefined){
+        drawLine(lastFeatures.map(r=>r.Date), lastFeatures.map(r=>r.RSI_14), 'chart-rsi', 'RSI_14');
+      } else { $('#chart-rsi').innerHTML = '<div class="muted">RSI not available.</div>'; }
+      try{
+        const perf = await api.performance(symbol,start,end);
+        renderPerformance(perf.rows||[]);
+      }catch(e){
+        renderPerformance([]);
+      }
+    }
+
+    $('#btn-fetch').addEventListener('click', fetchAll);
+    $('#btn-export').addEventListener('click', async ()=>{
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const start = $('#input-start').value; const end = $('#input-end').value;
+      const r = await api.exportCSV(symbol,start,end);
+      $('#export-path').textContent = r.path || '';
+    });
+
+    $('#btn-train').addEventListener('click', async ()=>{
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const start = $('#input-start').value; const end = $('#input-end').value;
+      const model = $('#select-model').value;
+      const r = await api.predict(symbol,start,end,model);
+      $('#m-rmse').textContent = r.metrics?.RMSE?.toFixed(3) ?? '-';
+      $('#m-mae').textContent = r.metrics?.MAE?.toFixed(3) ?? '-';
+      $('#m-r2').textContent = r.metrics?.R2?.toFixed(3) ?? '-';
+      $('#next-pred').textContent = r.next_pred ? r.next_pred.toFixed(2) : '-';
+      drawPredChart(r.y_true, r.y_pred);
+    });
+
+    $('#btn-insights').addEventListener('click', async ()=>{
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const start = $('#input-start').value; const end = $('#input-end').value;
+      const model = $('#select-gemini-model').value;
+      $('#ai-output').textContent = 'Generating insights...';
+      try{
+        const r = await api.insights(symbol,start,end,model);
+        $('#ai-output').textContent = r.text || 'No response';
+      }catch(e){
+        $('#ai-output').textContent = 'Error generating insights.';
+      }
+    });
+
+    function renderImageAnalysis(outEl, res){
+      if(!res){ outEl.textContent = 'No response'; return; }
+      // Support both {analysis:{...}} and top-level {...}
+      let a = res.analysis;
+      if(!a && typeof res === 'object' && res){
+        const keys = ['support','resistance','stance','entry','stoploss','target','confidence','reasoning'];
+        if(keys.some(k=>k in res)) a = res;
+      }
+      const fmt = (v)=>{
+        const num = Number(v);
+        if(Number.isFinite(num)) return num.toFixed(2);
+        return (v ?? '-');
+      };
+      if(a){
+        const conf = (a.confidence!==undefined && a.confidence!==null) ? Math.round(Number(a.confidence)*100) + '%' : '-';
+        outEl.innerHTML = `
+          <div class="row" style="grid-template-columns:repeat(3,1fr);gap:10px">
+            <div class="card kpi"><h3>Support</h3><div class="val">${fmt(a.support)}</div></div>
+            <div class="card kpi"><h3>Resistance</h3><div class="val">${fmt(a.resistance)}</div></div>
+            <div class="card kpi"><h3>Stance</h3><div class="val">${(a.stance||'-')}</div></div>
+          </div>
+          <div class="row" style="grid-template-columns:repeat(3,1fr);gap:10px">
+            <div class="card kpi"><h3>Entry</h3><div class="val">${fmt(a.entry)}</div></div>
+            <div class="card kpi"><h3>Stop-loss</h3><div class="val">${fmt(a.stoploss)}</div></div>
+            <div class="card kpi"><h3>Target</h3><div class="val">${fmt(a.target)}</div></div>
+          </div>
+          <div class="muted">Confidence: ${conf}</div>
+          <div class="muted" style="margin-top:6px">${a.reasoning || ''}</div>
+        `;
+      } else {
+        const rawSrc = (res && (res.detail || res.text || res.message || res.raw_text)) || 'No response';
+        const raw = String(rawSrc).replace(/[<>&]/g, m=>({ '<':'&lt;', '>':'&gt;', '&':'&amp;' }[m]));
+        outEl.innerHTML = `<pre style="white-space:pre-wrap">${raw}</pre>`;
+      }
+    }
+
+    // Basic, safe Markdown -> HTML for assistant text (bold, bullets, headings)
+    function renderMarkdown(md){
+      if(!md) return '';
+      const esc = (s)=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const safe = esc(String(md).trim()).replace(/\r\n/g,'\n');
+      // bold and emphasis
+      let tmp = safe.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      tmp = tmp.replace(/(^|\W)\*(?!\s)([^*]+?)\*(?=\W|$)/g,'$1<em>$2</em>');
+      const lines = tmp.split(/\n/);
+      let html = '';
+      let inList = false;
+      for(const line of lines){
+        const h = line.match(/^\s*#{1,6}\s+(.*)/);
+        if(h){ if(inList){ html += '</ul>'; inList=false; } html += `<h4>${h[1]}</h4>`; continue; }
+        const m = line.match(/^\s*[*-]\s+(.*)/);
+        if(m){ if(!inList){ html += '<ul>'; inList=true; } html += `<li>${m[1]}</li>`; continue; }
+        if(inList){ html += '</ul>'; inList=false; }
+        if(line.trim().length){ html += `<p>${line}</p>`; }
+      }
+      if(inList) html += '</ul>';
+      return html || safe;
+    }
+
+    $('#btn-insights-image').addEventListener('click', async ()=>{
+      const file = $('#chart-file').files[0];
+      const out = $('#ai-image-output');
+      if(!file){ out.textContent = 'Please select an image file.'; return; }
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const model = $('#select-gemini-model').value;
+      out.textContent = 'Analyzing image...';
+      try{
+        const r = await api.insightsImage(file, symbol, model);
+        renderImageAnalysis(out, r);
+      }catch(e){
+        out.textContent = 'Error analyzing image.';
+      }
+    });
+
+    $('#btn-insights').addEventListener('click', async ()=>{
+      const symbol = $('#input-symbol').value.trim().toUpperCase();
+      const start = $('#input-start').value; const end = $('#input-end').value;
+      const model = $('#select-gemini-model').value;
+      $('#ai-output').textContent = 'Generating insights...';
+      try{
+        const r = await api.insights(symbol,start,end,model);
+        $('#ai-output').innerHTML = renderMarkdown(r.text || '');
+      }catch(e){
+        $('#ai-output').textContent = 'Error generating insights.';
+      }
+    });
+
+    // Auto-fetch on load
+    fetchAll();
+  </script>
+</body>
+</html>
